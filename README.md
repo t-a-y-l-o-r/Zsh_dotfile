@@ -1,2 +1,2 @@
 # Zsh_dotfile
-A repo for yet another dtofile
+A repo for yet another dotfile
