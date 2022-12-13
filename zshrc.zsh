@@ -193,12 +193,6 @@ export PATH="$HOME/.cargo/bin:$PATH"
 export PATH="/home/taylor/.local/bin:$PATH"
 
 
-# ========================================
-#   CheckIP
-# ========================================
-export VT_KEY="3f467c56a53c5b5458a86e1de76db9df801c9c2362b0e9841594c45e3186f1e9"
-export OTX_KEY="82149ec2ab1879de95b3de41da65e3eeede20f751b0de89569182855d924962f"
-
 # systemd stuff
 export SYSTEMD_EDITOR=vim
 
@@ -432,7 +426,6 @@ export PGDATA="/usr/local/var/postgres/"
 # export PATH="/usr/local/bin:$PATH"
 # eval "$(pyenv init -)"
 # eval "$(pyenv virtualenv-init -)"
-# export DJSTRIPE_WEBHOOK_SECRET='whsec_CEaTBJj51ohjbKtFEVvFWmhrD7EwpRAQ'
 # export PWDEBUG=1
 
 # heroku autocomplete setup
