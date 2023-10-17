@@ -121,6 +121,9 @@ source $ZSH/oh-my-zsh.sh
 #  OLD ZSH DOT FILE
 # ====================
 
+
+# export PATH=/home/taylor/.pyenv/versions/3.8.0/bin/python:$PATH
+
 # Enable colors and change prompt:
 autoload -U colors && colors
 
@@ -171,7 +174,7 @@ alias rezsh="source ~/.zshrc"
 
 # ensure caps lock is escape
 # LINUX ONLY
-setxkbmap -option caps:escape
+# setxkbmap -option caps:escape
 
 # Edit line in vim with ctrl-e:
 autoload edit-command-line; zle -N edit-command-line
@@ -227,6 +230,7 @@ function ios {
 
 
 # open sessions in tmux
+# deprecated
 function session {
 
     if [ $# -eq 0 ] || [ ! -d "$1" ]
@@ -245,7 +249,7 @@ function session {
         return 1
     fi
 
-    # activating tmux while ALREADY in a venv
+    # activating tmux with while ALREADY in a venv
     # can cause issues with pre/post hooks
     if [[ "$VIRTUAL_ENV" != "" ]]
     then
@@ -253,31 +257,35 @@ function session {
     fi
 
     PROJECT_DIRECTORY="`realpath $@`"
-    if ! [[ -d $PROJECT_DIRECTORY ]];
-    then
-        echo "Provided argument is not a dir: ${PROJECT_DIRECTORY}" >&2
-        return 1
-    fi
 
+    # message="Found virtualenv for ${VENV_NAME}"
+    # tmux send-keys -t $SESSION_NAME:${@} "echo ${message}" Enter
+    function venv_connect {
+
+        VENV_NAME=`basename "echo ${PROJECT_DIRECTORY}"`
+        VENV_DIR=${WORKON_HOME}/${VENV_NAME}
+        WORK="workon ${VENV_NAME}"
+
+        if [ -d $VENV_DIR ]
+        then
+            tmux send-keys -t $SESSION_NAME:${@} "$WORK" Enter
+        else
+            message='Might want to run ./scripts/start.sh'
+            tmux send-keys -t $SESSION_NAME:${@} "echo $message" Enter
+        fi
+    }
 
 
     function vim_window {
         tmux rename-window -t $SESSION_NAME:0 'vim'
-        tmux send-keys -t $SESSION_NAME:0 "cd ${PROJECT_DIRECTORY}" Enter
         tmux send-keys -t $SESSION_NAME:0 'vim "."'
     }
 
 
-    function dev1_window {
+    function dev_window {
         tmux new-window -t $SESSION_NAME
-        tmux send-keys -t $SESSION_NAME:1 "cd ${PROJECT_DIRECTORY}" Enter
-        tmux rename-window -t $SESSION_NAME:1 'dev1'
-    }
-
-    function dev2_window {
-        tmux new-window -t $SESSION_NAME
-        tmux send-keys -t $SESSION_NAME:2 "cd ${PROJECT_DIRECTORY}" Enter
-        tmux rename-window -t $SESSION_NAME:2 'dev2'
+        tmux rename-window -t $SESSION_NAME:1 'development'
+        venv_connect 1
     }
 
 
@@ -285,17 +293,16 @@ function session {
         git_tmux="git status 2&> /dev/null || (git init && git status)"
 
         tmux new-window -t $SESSION_NAME
-        tmux rename-window -t $SESSION_NAME:3 'git'
-        tmux send-keys -t $SESSION_NAME:3 "cd ${PROJECT_DIRECTORY}" Enter
-        tmux send-keys -t $SESSION_NAME:3 $git_tmux Enter
+        tmux rename-window -t $SESSION_NAME:2 'git'
+        tmux send-keys -t $SESSION_NAME:2 $git_tmux Enter
     }
+
 
 
     tmux new-session -d -s $SESSION_NAME
 
     vim_window
-    dev1_window
-    dev2_window
+    dev_window
     git_window
 
     tmux attach -t $SESSION_NAME
@@ -373,151 +380,26 @@ function git_delete_pattern {
   git branch --list "$@" | xargs -r git branch -D
 }
 
-function pbpaste() {
-  xclip -selection clipboard -o > $1
-}
-function pbcopy() {
-  xclip -selection clipboard < $1
-}
-
-# function add_command() {
-#   perl ~/Git/scripts/django_command.pl $1 $2
-# }
-
-export PATH="$PATH:~/Git/scripts"
-function __() {
-  function nested_script() {
-    local subfolder=$1
-    local script=$2
-    local full_path
-
-    if [[ ! -d ~/Git/scripts/$subfolder ]]; then
-      return 1
-    fi
-
-    full_path=$(find ~/Git/scripts/$subfolder -type f -name "$script.*" 2>/dev/null)
-    if [[ -z $full_path ]]; then
-      return 1
-    fi
-    echo "$full_path"
-    return 0
-  }
-  function top_level_script() {
-    local script=$1
-    full_path=$(find ~/Git/scripts/ -type f -name "$script.*" 2>/dev/null)
-
-    if [[ -z $full_path ]]; then
-      return 1
-    fi
-    echo "$full_path"
-    return 0
-  }
-  function run_script() {
-    script=$1
-    shift 1
-    case $script in
-      *.sh)
-        bash $script "$@"
-        ;;
-      *.py)
-        python $script "$@"
-        ;;
-      *.pl)
-        perl $script "$@"
-        ;;
-      *)
-        filetype=$(echo "${script##*.}")
-        echo "Cannot find a runner for script of type: $filetype"
-        return 1
-        ;;
-    esac
-  }
-
-  script_path=$(top_level_script "$@")
-  if [ $? -eq 0 ]; then
-    shift 1
-    run_script $script_path "$@"
-    return 0
-  fi
-
-  script_path=$(nested_script "$@")
-  if [ $? -eq 0 ]; then
-    shift 2
-    run_script $script_path "$@"
-    return 0
-  fi
-  echo "Unable to determine command"
-  return 1
-}
-
-function maven() {
-  $HOME/perl5/perlbrew/perls/perl-5.36.1/bin/perl5.36.1 "$HOME/Git/maven/bin/maven.pl" "$@"
-}
-
-function bootstrap {
-  files=(
-    ~/.config/maven/rc
-  )
-  for file in "${files[@]}";
-  do
-    if [[ -f $file ]];
-    then
-      source "$file"
-    fi
-  done
-}
-
-RESEARCH_EXCLUSION="$HOME/.google_exclusion";
-function free-me {
-  echo "$1" >> $RESEARCH_EXCLUSION;
-}
-
-function query-google {
-  output="\"$1\""
-  while read -r line;
-  do
-    output="${output} -\"${line}\""
-  done < $RESEARCH_EXCLUSION
-  echo $output
-}
-
-
 # ========================================
 #  virtualenvwrapper stuff
 # ========================================
 
 # NEW PROJECTS USE DIRENV
-# export WORKON_HOME=$HOME/.virtualenvs
-export PROJECT_HOME=$HOME/Work
-
+export WORKON_HOME=$HOME/.virtualenvs
+export PROJECT_HOME=$HOME/Devel
 # disable virtual env prompt prefix
 export VIRTUAL_ENV_DISABLE_PROMPT=1
-
 # linux
-source /usr/local/bin/virtualenvwrapper.sh
+# source /usr/local/bin/virtualenvwrapper.sh
 # macos
-
-# source /opt/homebrew/bin/virtualenvwrapper.sh
+source /opt/homebrew/bin/virtualenvwrapper.sh
 export PATH=$PATH:/usr/local/go/bin
-
-# ========================================
-#   pyenv
-# ========================================
-
-export PYENV_ROOT="$HOME/.pyenv"
-export PATH="$PYENV_ROOT/bin:$PATH"
-export PATH="$PYENV_ROOT/shims:$PATH"
-
-if command -v pyenv 1>/dev/null 2>&1; then
-  eval "$(pyenv init --path)"
-fi
 
 
 # ========================================
 #   VIM
 # ========================================
 
-# still need to install nvim
 alias vim="nvim"
 
 
@@ -525,66 +407,17 @@ alias vim="nvim"
 #   a health client setup
 # ========================================
 
+export PATH="$(pyenv root)/shims:$PATH"
+eval "$(pyenv init --path)"
+eval "$(pyenv init -)"
 eval "$(direnv hook zsh)"
 
-# export PATH="$HOME/.poetry/bin:$PATH"
-#
-# alias pg_start="launchctl load ~/Library/LaunchAgents"
-# alias pg_stop="launchctl unload ~/Library/LaunchAgents"
-# export PGDATA="/usr/local/var/postgres/"
+export PATH="$HOME/.poetry/bin:$PATH"
 
-# ========================================
-#   Fly.io
-# ========================================
+alias pg_start="launchctl load ~/Library/LaunchAgents"
+alias pg_stop="launchctl unload ~/Library/LaunchAgents"
+export PGDATA="/usr/local/var/postgres/"
 
-export FLYCTL_INSTALL="/home/taylor/.fly"
-export PATH="$FLYCTL_INSTALL/bin:$PATH"
-
-# ========================================
-#   Go
-# ========================================
-
-[[ -s "/home/taylor/.gvm/scripts/gvm" ]] && source "/home/taylor/.gvm/scripts/gvm"
-export PATH=$PATH:$HOME/.gvm/bin
-
-
-# ========================================
-#   Perl is a greasy hamburger and I want more
-# ========================================
-
-source ~/perl5/perlbrew/etc/bashrc
-PATH="/home/taylor/perl5/bin${PATH:+:${PATH}}"; export PATH;
-PERL5LIB="/home/taylor/perl5/lib/perl5${PERL5LIB:+:${PERL5LIB}}"; export PERL5LIB;
-PERL_LOCAL_LIB_ROOT="/home/taylor/perl5${PERL_LOCAL_LIB_ROOT:+:${PERL_LOCAL_LIB_ROOT}}"; export PERL_LOCAL_LIB_ROOT;
-PERL_MB_OPT="--install_base \"/home/taylor/perl5\""; export PERL_MB_OPT;
-PERL_MM_OPT="INSTALL_BASE=/home/taylor/perl5"; export PERL_MM_OPT;
-
-# maven
-source /home/taylor/Git/maven/utility_belt/autocomplete.zsh
-bootstrap
-
-# ========================================
-#   Heroku
-# ========================================
-# heroku autocomplete setup
-HEROKU_AC_ZSH_SETUP_PATH=/Users/taylorcochran/Library/Caches/heroku/autocomplete/zsh_setup && test -f $HEROKU_AC_ZSH_SETUP_PATH && source $HEROKU_AC_ZSH_SETUP_PATH;
-
-# ========================================
-#   Node sucks
-# ========================================
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-
-
-# ========================================
-#   Kubernetes but it's a custom tool now and this helps autocompletion
-# ========================================
-
-fpath=($ZSH/custom/completions $fpath)
-
-# Generated for envman. Do not edit.
-[ -s "$HOME/.config/envman/load.sh" ] && source "$HOME/.config/envman/load.sh"
 
 # ========================================
 #   OLD SHIT
@@ -595,8 +428,5 @@ fpath=($ZSH/custom/completions $fpath)
 # eval "$(pyenv virtualenv-init -)"
 # export PWDEBUG=1
 
-# ========================================
-#   Shit auto-added without my knowledge
-# ========================================
-export PATH="$PATH:/opt/mssql-tools18/bin"
-
+# heroku autocomplete setup
+HEROKU_AC_ZSH_SETUP_PATH=/Users/taylorcochran/Library/Caches/heroku/autocomplete/zsh_setup && test -f $HEROKU_AC_ZSH_SETUP_PATH && source $HEROKU_AC_ZSH_SETUP_PATH;
